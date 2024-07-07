@@ -1,0 +1,72 @@
+# model 2
+import tensorflow as tf
+from tensorflow.keras import layers, models
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Load CIFAR-10 dataset
+(x_train, y_train), (x_test, y_test) = tf.keras.datasets.cifar10.load_data()
+
+# Use only two classes: Class 0 (airplane) and Class 1 (automobile)
+def filter_classes(x, y, classes):
+    idx = np.isin(y, classes).flatten()
+    x, y = x[idx], y[idx]
+    y = np.where(y == classes[0], 0, 1)  # Convert to binary labels
+    return x, y
+
+
+# Expanded subset
+x_train_large, y_train_large = filter_classes(x_train[:20000], y_train[:20000], [0, 1])
+x_test_large, y_test_large = filter_classes(x_test[:5000], y_test[:5000], [0, 1])
+
+# Normalize images
+x_train_large = x_train_large / 255.0
+x_test_large = x_test_large / 255.0
+
+# Build the CNN model
+model_large = models.Sequential([
+    layers.Conv2D(32, (3, 3), activation='relu', input_shape=(32, 32, 3)),
+    layers.MaxPooling2D((2, 2)),
+    layers.Conv2D(64, (3, 3), activation='relu'),
+    layers.MaxPooling2D((2, 2)),
+    layers.Conv2D(128, (3, 3), activation='relu'),
+    layers.MaxPooling2D((2, 2)),
+    layers.Flatten(),
+    layers.Dense(512, activation='relu'),
+    layers.Dense(1, activation='sigmoid')
+])
+
+# Compile the model
+model_large.compile(loss='binary_crossentropy',
+                    optimizer='adam',
+                    metrics=['accuracy'])
+
+# Train the model with an expanded dataset
+history_large = model_large.fit(x_train_large, y_train_large, epochs=10, validation_data=(x_test_large, y_test_large))
+
+# Evaluate the model
+test_loss_large, test_acc_large = model_large.evaluate(x_test_large, y_test_large)
+print(f"Test accuracy with expanded dataset: {test_acc_large}")
+
+# Plot the training and validation accuracy and loss
+acc_large = history_large.history['accuracy']
+val_acc_large = history_large.history['val_accuracy']
+loss_large = history_large.history['loss']
+val_loss_large = history_large.history['val_loss']
+
+epochs_large = range(len(acc_large))
+
+plt.figure(figsize=(8, 8))
+plt.subplot(1, 2, 1)
+plt.plot(epochs_large, acc_large, 'r', label='Training accuracy')
+plt.plot(epochs_large, val_acc_large, 'b', label='Validation accuracy')
+plt.title('Training and validation accuracy (expanded dataset)')
+plt.legend()
+
+plt.subplot(1, 2, 2)
+plt.plot(epochs_large, loss_large, 'r', label='Training loss')
+plt.plot(epochs_large, val_loss_large, 'b', label='Validation loss')
+plt.title('Training and validation loss (expanded dataset)')
+plt.legend()
+
+plt.show()
