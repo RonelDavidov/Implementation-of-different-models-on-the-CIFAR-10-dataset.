@@ -1,0 +1,89 @@
+# model 4
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras import layers, models
+import matplotlib.pyplot as plt
+
+# Load CIFAR-10 dataset
+(x_train, y_train), (x_test, y_test) = tf.keras.datasets.cifar10.load_data()
+
+# Use only two classes: Class 0 (airplane) and Class 1 (automobile)
+def filter_classes(x, y, classes):
+    idx = np.isin(y, classes).flatten()
+    x, y = x[idx], y[idx]
+    y = np.where(y == classes[0], 0, 1)  # Convert to binary labels
+    return x, y
+
+# Small subset
+x_train_small, y_train_small = filter_classes(x_train[:2000], y_train[:2000], [0, 1])
+x_test_small, y_test_small = filter_classes(x_test[:1000], y_test[:1000], [0, 1])
+
+# Normalize images
+x_train_small = x_train_small / 255.0
+x_test_small = x_test_small / 255.0
+
+# Function to augment data by rotating images
+def augment_data(x, y):
+    x_augmented = []
+    y_augmented = []
+
+    for angle in [90, 180, 270]:
+        x_rotated = tf.image.rot90(x, k=angle // 90)
+        x_augmented.append(x_rotated)
+        y_augmented.append(y)
+
+    x_augmented = np.concatenate(x_augmented, axis=0)
+    y_augmented = np.concatenate(y_augmented, axis=0)
+
+    return np.concatenate((x, x_augmented)), np.concatenate((y, y_augmented))
+
+# Augment the training data
+x_train_augmented, y_train_augmented = augment_data(x_train_small, y_train_small)
+
+# Build the CNN model
+model = models.Sequential([
+    layers.Conv2D(32, (3, 3), activation='relu', input_shape=(32, 32, 3)),
+    layers.MaxPooling2D((2, 2)),
+    layers.Conv2D(64, (3, 3), activation='relu'),
+    layers.MaxPooling2D((2, 2)),
+    layers.Conv2D(128, (3, 3), activation='relu'),
+    layers.MaxPooling2D((2, 2)),
+    layers.Flatten(),
+    layers.Dense(512, activation='relu'),
+    layers.Dense(1, activation='sigmoid')
+])
+
+# Compile the model
+model.compile(loss='binary_crossentropy',
+              optimizer='adam',
+              metrics=['accuracy'])
+
+# Train the model with the augmented dataset
+history_augmented = model.fit(x_train_augmented, y_train_augmented, epochs=20, validation_data=(x_test_small, y_test_small))
+
+# Evaluate the model
+test_loss_augmented, test_acc_augmented = model.evaluate(x_test_small, y_test_small)
+print(f"Test accuracy with augmented data: {test_acc_augmented}")
+
+# Plot the training and validation accuracy and loss
+acc_augmented = history_augmented.history['accuracy']
+val_acc_augmented = history_augmented.history['val_accuracy']
+loss_augmented = history_augmented.history['loss']
+val_loss_augmented = history_augmented.history['val_loss']
+
+epochs = range(len(acc_augmented))
+
+plt.figure(figsize=(8, 8))
+plt.subplot(1, 2, 1)
+plt.plot(epochs, acc_augmented, 'g', label='Augmented training accuracy')
+plt.plot(epochs, val_acc_augmented, 'y', label='Augmented validation accuracy')
+plt.title('Training and validation accuracy')
+plt.legend()
+
+plt.subplot(1, 2, 2)
+plt.plot(epochs, loss_augmented, 'g', label='Augmented training loss')
+plt.plot(epochs, val_loss_augmented, 'y', label='Augmented validation loss')
+plt.title('Training and validation loss')
+plt.legend()
+
+plt.show()
